@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainNavigation from './MainNavigation';
 import ThemeSettings from './ThemeSettings';
+import AddMember from './AddMember';
 import tr from './i18n';
 import {
   fetchMembers,
@@ -164,6 +165,7 @@ function App() {
           <option value="expired">{tr.expired}</option>
           <option value="canceled">{tr.canceled}</option>
         </select>
+        <button style={{background:'var(--primary)',color:'#fff',borderRadius:8}} onClick={()=>setScreen('addmember')} title="Üye Ekle">➕</button>
       </div>
       {showPwChange && (
         <form onSubmit={async e=>{
@@ -188,49 +190,12 @@ function App() {
       )}
       {screen === 'members' && (
         <>
-      <form onSubmit={handleSubmit} className="form">
-        <h3>{tr.addMember}</h3>
-        <div className="form-row">
-          <label>{tr.firstName}</label>
-          <input name="first_name" value={form.first_name} onChange={handleChange} />
-          {errors.first_name && <span className="error">{errors.first_name}</span>}
-        </div>
-        <div className="form-row">
-          <label>{tr.lastName}</label>
-          <input name="last_name" value={form.last_name} onChange={handleChange} />
-          {errors.last_name && <span className="error">{errors.last_name}</span>}
-        </div>
-        <div className="form-row">
-          <label>{tr.email}</label>
-          <input name="email" value={form.email} onChange={handleChange} />
-          {errors.email && <span className="error">{errors.email}</span>}
-        </div>
-        <div className="form-row">
-          <label>{tr.phone}</label>
-          <input name="phone" value={form.phone} onChange={handleChange} />
-          {errors.phone && <span className="error">{errors.phone}</span>}
-        </div>
-        <div className="form-row">
-          <label>{tr.address}</label>
-          <input name="address" value={form.address} onChange={handleChange} />
-        </div>
-        <div className="form-row">
-          <label>{tr.membershipType}</label>
-          <select name="membership_type" value={form.membership_type} onChange={handleChange}>
-            <option value="monthly">{tr.monthly}</option>
-            <option value="annual">{tr.annual}</option>
-          </select>
-        </div>
-        <div className="form-row">
-          <label>{tr.startDate}</label>
-          <input name="start_date" type="date" value={form.start_date} onChange={handleChange} />
-          {errors.start_date && <span className="error">{errors.start_date}</span>}
-        </div>
-        <button type="submit" disabled={loading}>{tr.save}</button>
-        {message && <div className="message">{message}</div>}
-      </form>
-      <h3>{tr.memberList}</h3>
-      </>
+          {/* Üye listeleme burada kalacak, üye ekleme yeni sayfada olacak */}
+          <h3>{tr.memberList}</h3>
+        </>
+      )}
+      {screen === 'addmember' && (
+        <AddMember onSuccess={()=>setScreen('members')} />
       )}
       {screen === 'staff' && <StaffManagement />}
       {screen === 'schedule' && <ScheduleManagement />}
