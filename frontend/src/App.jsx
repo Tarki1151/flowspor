@@ -134,6 +134,7 @@ function App() {
         <button onClick={()=>setScreen('payments')} style={{fontWeight:screen==='payments'?'bold':'normal'}}>Ödemeler</button>
         <button onClick={()=>setScreen('services')} style={{fontWeight:screen==='services'?'bold':'normal'}}>Hizmetler</button>
         <button onClick={()=>setScreen('invoices')} style={{fontWeight:screen==='invoices'?'bold':'normal'}}>Faturalar</button>
+        <button onClick={()=>setScreen('reports')} style={{fontWeight:screen==='reports'?'bold':'normal'}}>Raporlar</button>
       </nav>
       <div style={{display:'flex',gap:'0.5rem',marginBottom:'1rem',flexWrap:'wrap',alignItems:'center'}}>
         <input
@@ -230,6 +231,7 @@ function App() {
       {screen === 'payments' && <Payments />}
       {screen === 'services' && <Services />}
       {screen === 'invoices' && <Invoices />}
+      {screen === 'reports' && <Reports />}
 
       {loading ? <div>Yükleniyor...</div> : (
         <div className="table-scroll">
@@ -307,5 +309,6 @@ import ReservationManagement from './ReservationManagement';
 import Payments from './Payments';
 import Services from './Services';
 import Invoices from './Invoices';
+import Reports from './Reports';
 
 export default App;

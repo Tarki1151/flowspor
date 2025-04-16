@@ -181,6 +181,39 @@ export async function downloadInvoicePDF(invoice_id) {
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+// === REPORTS ===
+export async function fetchReports() {
+  const res = await fetch(`${API_URL}/reports`, { headers: authHeader() });
+  return res.json();
+}
+export async function fetchReport(id) {
+  const res = await fetch(`${API_URL}/reports/${id}`, { headers: authHeader() });
+  return res.json();
+}
+export async function generateMembershipReport() {
+  const res = await fetch(`${API_URL}/reports/membership`, { method:'POST', headers: authHeader() });
+  return res.json();
+}
+export async function generateFinancialReport() {
+  const res = await fetch(`${API_URL}/reports/financial`, { method:'POST', headers: authHeader() });
+  return res.json();
+}
+export async function generateEquipmentUsageReport() {
+  const res = await fetch(`${API_URL}/reports/equipment_usage`, { method:'POST', headers: authHeader() });
+  return res.json();
+}
+export async function downloadReportCSV(id) {
+  const res = await fetch(`${API_URL}/reports/${id}/csv`, { headers: authHeader() });
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rapor_${id}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
 
 export async function changePassword(oldPassword, newPassword) {
   const res = await fetch(`${API_URL}/change-password`, {

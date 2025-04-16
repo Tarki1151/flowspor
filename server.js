@@ -112,6 +112,12 @@ db.serialize(() => {
     date TEXT NOT NULL,
     FOREIGN KEY(member_id) REFERENCES members(id)
   )`);
+  db.run(`CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    date TEXT NOT NULL,
+    data TEXT NOT NULL
+  )`);
   db.run(`CREATE TABLE IF NOT EXISTS classes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -482,6 +488,91 @@ app.get('/api/invoice/:invoice_id/pdf', authenticateToken, (req, res) => {
   });
 });
 // === /PAYMENTS, SERVICES, INVOICES ===
+
+// === REPORTS & ANALYTICS ===
+const { Parser } = require('json2csv');
+
+// Üyelik raporu üret
+app.post('/api/reports/membership', authenticateToken, (req, res) => {
+  // Yeni kayıt, yenileme, iptal (son 12 ay)
+  db.all(`SELECT 
+    strftime('%Y-%m', created_at) as period,
+    COUNT(*) as registrations
+    FROM members
+    GROUP BY period
+    ORDER BY period DESC
+    LIMIT 12`, [], (err, regs) => {
+    db.all(`SELECT 
+      strftime('%Y-%m', end_date) as period,
+      COUNT(*) as cancellations
+      FROM members WHERE end_date < date('now')
+      GROUP BY period
+      ORDER BY period DESC
+      LIMIT 12`, [], (err2, cancels) => {
+      const data = { registrations: regs, cancellations: cancels };
+      const date = new Date().toISOString().slice(0, 10);
+      db.run('INSERT INTO reports (type, date, data) VALUES (?, ?, ?)', ['membership', date, JSON.stringify(data)], function(err3) {
+        if (err3) return res.status(500).json({ error: 'Rapor kaydedilemedi.' });
+        res.json({ id: this.lastID, type: 'membership', date, data });
+      });
+    });
+  });
+});
+// Finansal rapor üret
+app.post('/api/reports/financial', authenticateToken, (req, res) => {
+  db.get('SELECT SUM(amount) as revenue FROM payments', [], (err, rev) => {
+    db.get('SELECT SUM(salary) as expenses FROM staff', [], (err2, exp) => {
+      const profit = (rev?.revenue || 0) - (exp?.expenses || 0);
+      const data = { revenue: rev?.revenue || 0, expenses: exp?.expenses || 0, profit };
+      const date = new Date().toISOString().slice(0, 10);
+      db.run('INSERT INTO reports (type, date, data) VALUES (?, ?, ?)', ['financial', date, JSON.stringify(data)], function(err3) {
+        if (err3) return res.status(500).json({ error: 'Rapor kaydedilemedi.' });
+        res.json({ id: this.lastID, type: 'financial', date, data });
+      });
+    });
+  });
+});
+// Ekipman kullanım raporu üret
+app.post('/api/reports/equipment_usage', authenticateToken, (req, res) => {
+  db.all(`SELECT equipment_id, COUNT(*) as usage_count FROM reservations GROUP BY equipment_id ORDER BY usage_count DESC`, [], (err, rows) => {
+    db.all('SELECT id, name FROM equipment', [], (err2, eqs) => {
+      const usage = rows.map(r => ({ ...r, name: eqs.find(e => e.id === r.equipment_id)?.name || '' }));
+      const date = new Date().toISOString().slice(0, 10);
+      db.run('INSERT INTO reports (type, date, data) VALUES (?, ?, ?)', ['equipment_usage', date, JSON.stringify(usage)], function(err3) {
+        if (err3) return res.status(500).json({ error: 'Rapor kaydedilemedi.' });
+        res.json({ id: this.lastID, type: 'equipment_usage', date, data: usage });
+      });
+    });
+  });
+});
+// Raporları listele
+app.get('/api/reports', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM reports ORDER BY date DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows.map(r => ({ ...r, data: JSON.parse(r.data) })));
+  });
+});
+// Tekil rapor getir
+app.get('/api/reports/:id', authenticateToken, (req, res) => {
+  db.get('SELECT * FROM reports WHERE id=?', [req.params.id], (err, row) => {
+    if (!row) return res.status(404).json({ error: 'Rapor bulunamadı.' });
+    res.json({ ...row, data: JSON.parse(row.data) });
+  });
+});
+// Raporu CSV olarak dışa aktar
+app.get('/api/reports/:id/csv', authenticateToken, (req, res) => {
+  db.get('SELECT * FROM reports WHERE id=?', [req.params.id], (err, row) => {
+    if (!row) return res.status(404).json({ error: 'Rapor bulunamadı.' });
+    let data = JSON.parse(row.data);
+    if (!Array.isArray(data)) data = [data];
+    const parser = new Parser();
+    const csv = parser.parse(data);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=report_${row.id}.csv`);
+    res.send(csv);
+  });
+});
+// === /REPORTS & ANALYTICS ===
 
 // Eğitmen müsaitlik ekle
 app.post('/api/trainer-availability', authenticateToken, (req, res) => {
