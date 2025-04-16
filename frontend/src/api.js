@@ -136,6 +136,51 @@ export async function fetchMembers() {
   const res = await fetch(`${API_URL}/members`, { headers: authHeader() });
   return res.json();
 }
+// === PAYMENTS ===
+export async function addPayment(data) {
+  const res = await fetch(`${API_URL}/payments`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(data)
+  });
+  return res.json();
+}
+export async function fetchPayments(member_id) {
+  const res = await fetch(`${API_URL}/payments/${member_id}`, { headers: authHeader() });
+  return res.json();
+}
+// === SERVICES ===
+export async function fetchServices() {
+  const res = await fetch(`${API_URL}/services`, { headers: authHeader() });
+  return res.json();
+}
+export async function addService(data) {
+  const res = await fetch(`${API_URL}/services`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(data)
+  });
+  return res.json();
+}
+export async function addServicePayment(data) {
+  const res = await fetch(`${API_URL}/service-payment`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(data)
+  });
+  return res.json();
+}
+// === INVOICES ===
+export async function fetchInvoices(member_id) {
+  const res = await fetch(`${API_URL}/invoices/${member_id}`, { headers: authHeader() });
+  return res.json();
+}
+export async function downloadInvoicePDF(invoice_id) {
+  const res = await fetch(`${API_URL}/invoice/${invoice_id}/pdf`, { headers: authHeader() });
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fatura_${invoice_id}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
 
 export async function changePassword(oldPassword, newPassword) {
   const res = await fetch(`${API_URL}/change-password`, {

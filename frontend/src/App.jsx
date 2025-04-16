@@ -131,6 +131,9 @@ function App() {
         <button onClick={()=>setScreen('equipment')} style={{fontWeight:screen==='equipment'?'bold':'normal'}}>Ekipman</button>
         <button onClick={()=>setScreen('inventory')} style={{fontWeight:screen==='inventory'?'bold':'normal'}}>Envanter</button>
         <button onClick={()=>setScreen('reservation')} style={{fontWeight:screen==='reservation'?'bold':'normal'}}>Rezervasyon</button>
+        <button onClick={()=>setScreen('payments')} style={{fontWeight:screen==='payments'?'bold':'normal'}}>Ödemeler</button>
+        <button onClick={()=>setScreen('services')} style={{fontWeight:screen==='services'?'bold':'normal'}}>Hizmetler</button>
+        <button onClick={()=>setScreen('invoices')} style={{fontWeight:screen==='invoices'?'bold':'normal'}}>Faturalar</button>
       </nav>
       <div style={{display:'flex',gap:'0.5rem',marginBottom:'1rem',flexWrap:'wrap',alignItems:'center'}}>
         <input
@@ -224,6 +227,9 @@ function App() {
       {screen === 'equipment' && <EquipmentManagement />}
       {screen === 'inventory' && <InventoryManagement />}
       {screen === 'reservation' && <ReservationManagement />}
+      {screen === 'payments' && <Payments />}
+      {screen === 'services' && <Services />}
+      {screen === 'invoices' && <Invoices />}
 
       {loading ? <div>Yükleniyor...</div> : (
         <div className="table-scroll">
@@ -298,5 +304,8 @@ import PerformanceManagement from './PerformanceManagement';
 import EquipmentManagement from './EquipmentManagement';
 import InventoryManagement from './InventoryManagement';
 import ReservationManagement from './ReservationManagement';
+import Payments from './Payments';
+import Services from './Services';
+import Invoices from './Invoices';
 
 export default App;

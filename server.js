@@ -92,6 +92,26 @@ db.serialize(() => {
     FOREIGN KEY(equipment_id) REFERENCES equipment(id),
     FOREIGN KEY(member_id) REFERENCES members(id)
   )`);
+  db.run(`CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    date TEXT NOT NULL,
+    payment_type TEXT NOT NULL,
+    FOREIGN KEY(member_id) REFERENCES members(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    price REAL NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    date TEXT NOT NULL,
+    FOREIGN KEY(member_id) REFERENCES members(id)
+  )`);
   db.run(`CREATE TABLE IF NOT EXISTS classes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -377,6 +397,91 @@ app.get('/api/equipment/maintenance/upcoming', authenticateToken, (req, res) => 
   });
 });
 // === /EQUIPMENT & INVENTORY MANAGEMENT ===
+
+// === PAYMENTS, SERVICES, INVOICES ===
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+
+// Üyelik ödemesi (simülasyon, gerçek ödeme gateway entegrasyonu için altyapı hazır)
+app.post('/api/payments', authenticateToken, (req, res) => {
+  const { member_id, amount, payment_type, date } = req.body;
+  if (!member_id || !amount || !payment_type) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  const paymentDate = date || new Date().toISOString().slice(0, 10);
+  // Üyelik bitişini güncelle (örnek: 1 ay uzat)
+  db.run('INSERT INTO payments (member_id, amount, date, payment_type) VALUES (?, ?, ?, ?)', [member_id, amount, paymentDate, payment_type], function(err) {
+    if (err) return res.status(500).json({ error: 'Ödeme kaydedilemedi.' });
+    db.run('UPDATE members SET end_date = DATE(COALESCE(end_date, ?), "+1 month") WHERE id = ?', [paymentDate, member_id]);
+    // Fatura oluştur
+    db.run('INSERT INTO invoices (member_id, amount, date) VALUES (?, ?, ?)', [member_id, amount, paymentDate], function(err2) {
+      if (err2) return res.status(500).json({ error: 'Fatura oluşturulamadı.' });
+      res.json({ mesaj: 'Ödeme ve fatura kaydedildi.', payment_id: this.lastID });
+    });
+  });
+});
+// Hizmet ekle
+app.post('/api/services', authenticateToken, (req, res) => {
+  const { name, price } = req.body;
+  if (!name || !price) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  db.run('INSERT INTO services (name, price) VALUES (?, ?)', [name, price], function(err) {
+    if (err) return res.status(500).json({ error: 'Hizmet eklenemedi.' });
+    res.json({ id: this.lastID, name, price });
+  });
+});
+// Hizmet listele
+app.get('/api/services', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM services', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Hizmet ödemesi
+app.post('/api/service-payment', authenticateToken, (req, res) => {
+  const { member_id, service_id, payment_type } = req.body;
+  if (!member_id || !service_id || !payment_type) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  db.get('SELECT price FROM services WHERE id=?', [service_id], (err, row) => {
+    if (!row) return res.status(400).json({ error: 'Hizmet bulunamadı.' });
+    const amount = row.price;
+    const paymentDate = new Date().toISOString().slice(0, 10);
+    db.run('INSERT INTO payments (member_id, amount, date, payment_type) VALUES (?, ?, ?, ?)', [member_id, amount, paymentDate, payment_type], function(err2) {
+      if (err2) return res.status(500).json({ error: 'Ödeme kaydedilemedi.' });
+      // Fatura oluştur
+      db.run('INSERT INTO invoices (member_id, amount, date) VALUES (?, ?, ?)', [member_id, amount, paymentDate], function(err3) {
+        if (err3) return res.status(500).json({ error: 'Fatura oluşturulamadı.' });
+        res.json({ mesaj: 'Hizmet ödemesi ve fatura kaydedildi.' });
+      });
+    });
+  });
+});
+// Ödeme ve fatura listele
+app.get('/api/payments/:member_id', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM payments WHERE member_id = ?', [req.params.member_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+app.get('/api/invoices/:member_id', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM invoices WHERE member_id = ?', [req.params.member_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Fatura PDF oluştur (PDFKit ile)
+app.get('/api/invoice/:invoice_id/pdf', authenticateToken, (req, res) => {
+  db.get('SELECT i.*, m.name as member_name FROM invoices i JOIN members m ON i.member_id = m.id WHERE i.id = ?', [req.params.invoice_id], (err, invoice) => {
+    if (!invoice) return res.status(404).json({ error: 'Fatura bulunamadı.' });
+    const doc = new PDFDocument();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=fatura_${invoice.id}.pdf`);
+    doc.text(`Fatura No: ${invoice.id}`);
+    doc.text(`Üye: ${invoice.member_name}`);
+    doc.text(`Tutar: ${invoice.amount} TL`);
+    doc.text(`Tarih: ${invoice.date}`);
+    doc.text('Teşekkürler!');
+    doc.end();
+    doc.pipe(res);
+  });
+});
+// === /PAYMENTS, SERVICES, INVOICES ===
 
 // Eğitmen müsaitlik ekle
 app.post('/api/trainer-availability', authenticateToken, (req, res) => {
