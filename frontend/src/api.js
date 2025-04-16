@@ -181,6 +181,49 @@ export async function downloadInvoicePDF(invoice_id) {
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+// === FEEDBACK ===
+export async function submitFeedback(data) {
+  const res = await fetch(`${API_URL}/feedback`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(data)
+  });
+  return res.json();
+}
+export async function fetchFeedback() {
+  const res = await fetch(`${API_URL}/feedback`, { headers: authHeader() });
+  return res.json();
+}
+// === PROMOTIONS ===
+export async function fetchPromotions() {
+  const res = await fetch(`${API_URL}/promotions`, { headers: authHeader() });
+  return res.json();
+}
+export async function addPromotion(data) {
+  const res = await fetch(`${API_URL}/promotions`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(data)
+  });
+  return res.json();
+}
+export async function deletePromotion(id) {
+  const res = await fetch(`${API_URL}/promotions/${id}`, { method: 'DELETE', headers: authHeader() });
+  return res.json();
+}
+// === LOYALTY ===
+export async function fetchLoyalty(member_id) {
+  const res = await fetch(`${API_URL}/loyalty/${member_id}`, { headers: authHeader() });
+  return res.json();
+}
+export async function awardLoyalty(member_id, points) {
+  const res = await fetch(`${API_URL}/loyalty/award`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify({ member_id, points })
+  });
+  return res.json();
+}
+export async function redeemLoyalty(member_id, points, reward) {
+  const res = await fetch(`${API_URL}/loyalty/redeem`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify({ member_id, points, reward })
+  });
+  return res.json();
+}
 // === REPORTS ===
 export async function fetchReports() {
   const res = await fetch(`${API_URL}/reports`, { headers: authHeader() });

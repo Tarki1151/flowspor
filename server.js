@@ -118,6 +118,28 @@ db.serialize(() => {
     date TEXT NOT NULL,
     data TEXT NOT NULL
   )`);
+  db.run(`CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id INTEGER,
+    date TEXT NOT NULL,
+    comment TEXT,
+    rating INTEGER,
+    anonymous INTEGER DEFAULT 0,
+    FOREIGN KEY(member_id) REFERENCES members(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS promotions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    discount REAL NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS loyalty (
+    member_id INTEGER PRIMARY KEY,
+    points INTEGER DEFAULT 0,
+    rewards TEXT,
+    FOREIGN KEY(member_id) REFERENCES members(id)
+  )`);
   db.run(`CREATE TABLE IF NOT EXISTS classes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -573,6 +595,78 @@ app.get('/api/reports/:id/csv', authenticateToken, (req, res) => {
   });
 });
 // === /REPORTS & ANALYTICS ===
+
+// === CRM: FEEDBACK, PROMOTIONS, LOYALTY ===
+// Feedback gönder
+app.post('/api/feedback', authenticateToken, (req, res) => {
+  const { member_id, comment, rating, anonymous } = req.body;
+  const date = new Date().toISOString().slice(0, 10);
+  db.run('INSERT INTO feedback (member_id, date, comment, rating, anonymous) VALUES (?, ?, ?, ?, ?)',
+    [anonymous ? null : member_id, date, comment, rating, anonymous ? 1 : 0],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Kayıt hatası' });
+      res.json({ id: this.lastID });
+    });
+});
+// Feedback listele
+app.get('/api/feedback', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM feedback ORDER BY date DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Promosyon ekle
+app.post('/api/promotions', authenticateToken, (req, res) => {
+  const { name, discount, start_date, end_date } = req.body;
+  db.get('SELECT * FROM promotions WHERE (start_date <= ? AND end_date >= ?)', [end_date, start_date], (err, row) => {
+    if (row) return res.status(400).json({ error: 'Tarihler çakışıyor.' });
+    db.run('INSERT INTO promotions (name, discount, start_date, end_date) VALUES (?, ?, ?, ?)', [name, discount, start_date, end_date], function(err2) {
+      if (err2) return res.status(500).json({ error: 'Kayıt hatası' });
+      res.json({ id: this.lastID });
+    });
+  });
+});
+// Promosyonları listele
+app.get('/api/promotions', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM promotions ORDER BY start_date DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Promosyon sil
+app.delete('/api/promotions/:id', authenticateToken, (req, res) => {
+  db.run('DELETE FROM promotions WHERE id=?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: 'Silinemedi' });
+    res.json({ success: true });
+  });
+});
+// Sadakat puanlarını güncelle (ödül ve güvenlik)
+app.post('/api/loyalty/award', authenticateToken, (req, res) => {
+  const { member_id, points } = req.body;
+  db.run('INSERT INTO loyalty (member_id, points) VALUES (?, ?) ON CONFLICT(member_id) DO UPDATE SET points = points + ?',[member_id, points, points], function(err) {
+    if (err) return res.status(500).json({ error: 'Puan eklenemedi' });
+    res.json({ success: true });
+  });
+});
+// Sadakat puanı sorgula
+app.get('/api/loyalty/:member_id', authenticateToken, (req, res) => {
+  db.get('SELECT * FROM loyalty WHERE member_id=?', [req.params.member_id], (err, row) => {
+    if (!row) return res.json({ points: 0, rewards: '' });
+    res.json(row);
+  });
+});
+// Sadakat puanı harca
+app.post('/api/loyalty/redeem', authenticateToken, (req, res) => {
+  const { member_id, points, reward } = req.body;
+  db.get('SELECT points FROM loyalty WHERE member_id=?', [member_id], (err, row) => {
+    if (!row || row.points < points) return res.status(400).json({ error: 'Yetersiz puan' });
+    db.run('UPDATE loyalty SET points = points - ?, rewards = COALESCE(rewards, "") || ? WHERE member_id=?', [points, `,${reward}`, member_id], function(err2) {
+      if (err2) return res.status(500).json({ error: 'Harcanamadı' });
+      res.json({ success: true });
+    });
+  });
+});
+// === /CRM ===
 
 // Eğitmen müsaitlik ekle
 app.post('/api/trainer-availability', authenticateToken, (req, res) => {
