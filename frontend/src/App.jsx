@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import MainNavigation from './MainNavigation';
+import ThemeSettings from './ThemeSettings';
 import tr from './i18n';
 import {
   fetchMembers,
@@ -36,6 +38,17 @@ function App() {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [screen, setScreen] = useState('members');
+  const [navOpen, setNavOpen] = useState(window.innerWidth > 900);
+
+  React.useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth > 900) setNavOpen(true);
+      else setNavOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn) loadMembers();
@@ -110,35 +123,29 @@ function App() {
     return matchesSearch && matchesStatus;
   });
 
-  // Navigation state
-  const [screen, setScreen] = useState('members');
   if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />;
+
+  // Scroll to top on screen change (mobile UX)
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [screen]);
+
+  const [themeOpen, setThemeOpen] = useState(false);
 
   return (
     <div className="container">
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
         <h2>{tr.appTitle}</h2>
-        <div>
+        <div style={{display:'flex',gap:6}}>
+          <button style={{background:'var(--primary)',color:'#fff',marginRight:8}} onClick={()=>setThemeOpen(true)} title="Tema Ayarları">🎨</button>
           <button style={{background:'#607d8b',marginRight:8}} onClick={()=>setShowPwChange(v=>!v)}>Şifre Değiştir</button>
           <button style={{background:'#d7263d'}} onClick={()=>{removeToken();setIsLoggedIn(false);}}>Çıkış</button>
         </div>
       </div>
-      <nav style={{marginBottom:'1rem',display:'flex',gap:'1rem',flexWrap:'wrap'}}>
-        <button onClick={()=>setScreen('members')} style={{fontWeight:screen==='members'?'bold':'normal'}}>Üye Yönetimi</button>
-        <button onClick={()=>setScreen('staff')} style={{fontWeight:screen==='staff'?'bold':'normal'}}>Personel</button>
-        <button onClick={()=>setScreen('schedule')} style={{fontWeight:screen==='schedule'?'bold':'normal'}}>Vardiya</button>
-        <button onClick={()=>setScreen('performance')} style={{fontWeight:screen==='performance'?'bold':'normal'}}>Performans</button>
-        <button onClick={()=>setScreen('equipment')} style={{fontWeight:screen==='equipment'?'bold':'normal'}}>Ekipman</button>
-        <button onClick={()=>setScreen('inventory')} style={{fontWeight:screen==='inventory'?'bold':'normal'}}>Envanter</button>
-        <button onClick={()=>setScreen('reservation')} style={{fontWeight:screen==='reservation'?'bold':'normal'}}>Rezervasyon</button>
-        <button onClick={()=>setScreen('payments')} style={{fontWeight:screen==='payments'?'bold':'normal'}}>Ödemeler</button>
-        <button onClick={()=>setScreen('services')} style={{fontWeight:screen==='services'?'bold':'normal'}}>Hizmetler</button>
-        <button onClick={()=>setScreen('invoices')} style={{fontWeight:screen==='invoices'?'bold':'normal'}}>Faturalar</button>
-        <button onClick={()=>setScreen('reports')} style={{fontWeight:screen==='reports'?'bold':'normal'}}>Raporlar</button>
-        <button onClick={()=>setScreen('feedback')} style={{fontWeight:screen==='feedback'?'bold':'normal'}}>Geri Bildirim</button>
-        <button onClick={()=>setScreen('promotions')} style={{fontWeight:screen==='promotions'?'bold':'normal'}}>Promosyonlar</button>
-        <button onClick={()=>setScreen('loyalty')} style={{fontWeight:screen==='loyalty'?'bold':'normal'}}>Sadakat</button>
-      </nav>
+      {themeOpen && <ThemeSettings onClose={()=>setThemeOpen(false)} />}
+      <MainNavigation screen={screen} setScreen={setScreen} navOpen={navOpen} setNavOpen={setNavOpen} />
+      {loading && <div className="loader" aria-label="Yükleniyor"></div>}
+
       <div style={{display:'flex',gap:'0.5rem',marginBottom:'1rem',flexWrap:'wrap',alignItems:'center'}}>
         <input
           type="text"
