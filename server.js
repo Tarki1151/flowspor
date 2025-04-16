@@ -44,6 +44,78 @@ db.serialize(() => {
     status TEXT NOT NULL,
     cancellation_date TEXT
   )`);
+  db.run(`CREATE TABLE IF NOT EXISTS staff (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    salary REAL NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id INTEGER NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    status TEXT NOT NULL,
+    FOREIGN KEY(staff_id) REFERENCES staff(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS performance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    hours_worked INTEGER NOT NULL,
+    feedback TEXT,
+    FOREIGN KEY(staff_id) REFERENCES staff(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS equipment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    serial_number TEXT NOT NULL UNIQUE,
+    purchase_date TEXT NOT NULL,
+    status TEXT NOT NULL,
+    maintenance_interval INTEGER NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS inventory (
+    equipment_id INTEGER PRIMARY KEY,
+    quantity INTEGER NOT NULL,
+    min_quantity INTEGER NOT NULL,
+    FOREIGN KEY(equipment_id) REFERENCES equipment(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS reservations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    equipment_id INTEGER NOT NULL,
+    member_id INTEGER NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    FOREIGN KEY(equipment_id) REFERENCES equipment(id),
+    FOREIGN KEY(member_id) REFERENCES members(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS classes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    date TEXT NOT NULL,
+    time TEXT NOT NULL,
+    capacity INTEGER NOT NULL,
+    trainer_id INTEGER NOT NULL,
+    FOREIGN KEY(trainer_id) REFERENCES staff(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS private_lessons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id INTEGER NOT NULL,
+    trainer_id INTEGER NOT NULL,
+    time TEXT NOT NULL,
+    FOREIGN KEY(member_id) REFERENCES members(id),
+    FOREIGN KEY(trainer_id) REFERENCES staff(id)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS trainer_availability (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    time TEXT NOT NULL,
+    FOREIGN KEY(trainer_id) REFERENCES staff(id)
+  )`);
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -109,6 +181,272 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
     });
   });
 });
+
+// === CLASS & PROGRAM MANAGEMENT ===
+
+// === STAFF MANAGEMENT ===
+
+// Personel ekle
+app.post('/api/staff', authenticateToken, (req, res) => {
+  const { name, role, email, phone, start_date, salary } = req.body;
+  if (!name || !role || !email || !phone || !start_date || !salary) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Geçersiz e-posta.' });
+  if (!/^\+?\d{10,14}$/.test(phone)) return res.status(400).json({ error: 'Geçersiz telefon.' });
+  db.get('SELECT * FROM staff WHERE email = ?', [email], (err, row) => {
+    if (row) return res.status(400).json({ error: 'Bu e-posta ile kayıtlı personel var.' });
+    db.run('INSERT INTO staff (name, role, email, phone, start_date, salary) VALUES (?, ?, ?, ?, ?, ?)', [name, role, email, phone, start_date, salary], function(err) {
+      if (err) return res.status(500).json({ error: 'Personel eklenemedi.' });
+      res.json({ id: this.lastID, name, role, email, phone, start_date, salary });
+    });
+  });
+});
+
+// Personel güncelle
+app.put('/api/staff/:id', authenticateToken, (req, res) => {
+  const { name, role, email, phone, start_date, salary } = req.body;
+  db.run('UPDATE staff SET name=?, role=?, email=?, phone=?, start_date=?, salary=? WHERE id=?', [name, role, email, phone, start_date, salary, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: 'Güncelleme başarısız.' });
+    res.json({ mesaj: 'Güncellendi.' });
+  });
+});
+
+// Personel sil
+app.delete('/api/staff/:id', authenticateToken, (req, res) => {
+  db.run('DELETE FROM staff WHERE id=?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: 'Silme başarısız.' });
+    res.json({ mesaj: 'Silindi.' });
+  });
+});
+
+// Personel listele
+app.get('/api/staff', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM staff', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+
+// === SHIFT SCHEDULING ===
+// Çakışma önleyici vardiya ekleme
+app.post('/api/schedules', authenticateToken, (req, res) => {
+  const { staff_id, start_time, end_time, status } = req.body;
+  if (!staff_id || !start_time || !end_time || !status) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  db.get('SELECT * FROM schedules WHERE staff_id = ? AND ((start_time < ? AND end_time > ?) OR (start_time < ? AND end_time > ?) OR (start_time >= ? AND end_time <= ?))', [staff_id, end_time, end_time, start_time, start_time, start_time, end_time], (err, clash) => {
+    if (clash) return res.status(400).json({ error: 'Bu personelin bu saatlerde başka bir vardiyası var.' });
+    db.run('INSERT INTO schedules (staff_id, start_time, end_time, status) VALUES (?, ?, ?, ?)', [staff_id, start_time, end_time, status], function(err) {
+      if (err) return res.status(500).json({ error: 'Vardiya eklenemedi.' });
+      res.json({ id: this.lastID, staff_id, start_time, end_time, status });
+    });
+  });
+});
+
+// Vardiya listele
+app.get('/api/schedules/:staff_id', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM schedules WHERE staff_id = ?', [req.params.staff_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+
+// === PERFORMANCE ===
+// Performans kaydı ekle
+app.post('/api/performance', authenticateToken, (req, res) => {
+  const { staff_id, date, hours_worked, feedback } = req.body;
+  if (!staff_id || !date || !hours_worked) return res.status(400).json({ error: 'Zorunlu alanlar eksik.' });
+  db.run('INSERT INTO performance (staff_id, date, hours_worked, feedback) VALUES (?, ?, ?, ?)', [staff_id, date, hours_worked, feedback], function(err) {
+    if (err) return res.status(500).json({ error: 'Performans kaydı eklenemedi.' });
+    res.json({ id: this.lastID, staff_id, date, hours_worked, feedback });
+  });
+});
+// Personel performans listesi
+app.get('/api/performance/:staff_id', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM performance WHERE staff_id = ?', [req.params.staff_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Haftalık/aylık ortalama saat
+app.get('/api/performance/:staff_id/average', authenticateToken, (req, res) => {
+  const { type } = req.query; // 'week' veya 'month'
+  let groupBy = type === 'month' ? "%Y-%m" : "%Y-%W";
+  db.all(`SELECT strftime('${groupBy}', date) as period, AVG(hours_worked) as avg_hours FROM performance WHERE staff_id = ? GROUP BY period`, [req.params.staff_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// === /STAFF MANAGEMENT ===
+
+
+// === (Önceki eğitmen ve ders API'leri burada kalacak, staff API'leri ile entegre çalışır) ===
+
+// === EQUIPMENT & INVENTORY MANAGEMENT ===
+
+// Ekipman ekle
+app.post('/api/equipment', authenticateToken, (req, res) => {
+  const { name, serial_number, purchase_date, status, maintenance_interval } = req.body;
+  if (!name || !serial_number || !purchase_date || !status || !maintenance_interval)
+    return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  db.get('SELECT * FROM equipment WHERE serial_number = ?', [serial_number], (err, row) => {
+    if (row) return res.status(400).json({ error: 'Bu seri numarası ile kayıtlı ekipman var.' });
+    db.run('INSERT INTO equipment (name, serial_number, purchase_date, status, maintenance_interval) VALUES (?, ?, ?, ?, ?)', [name, serial_number, purchase_date, status, maintenance_interval], function(err) {
+      if (err) return res.status(500).json({ error: 'Ekipman eklenemedi.' });
+      res.json({ id: this.lastID, name, serial_number, purchase_date, status, maintenance_interval });
+    });
+  });
+});
+// Ekipman güncelle
+app.put('/api/equipment/:id', authenticateToken, (req, res) => {
+  const { name, serial_number, purchase_date, status, maintenance_interval } = req.body;
+  db.run('UPDATE equipment SET name=?, serial_number=?, purchase_date=?, status=?, maintenance_interval=? WHERE id=?', [name, serial_number, purchase_date, status, maintenance_interval, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: 'Güncelleme başarısız.' });
+    res.json({ mesaj: 'Güncellendi.' });
+  });
+});
+// Ekipman sil
+app.delete('/api/equipment/:id', authenticateToken, (req, res) => {
+  db.run('DELETE FROM equipment WHERE id=?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: 'Silme başarısız.' });
+    res.json({ mesaj: 'Silindi.' });
+  });
+});
+// Ekipman listele
+app.get('/api/equipment', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM equipment', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Envanter ekle/güncelle
+app.post('/api/inventory', authenticateToken, (req, res) => {
+  const { equipment_id, quantity, min_quantity } = req.body;
+  if (!equipment_id || quantity == null || min_quantity == null) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  db.get('SELECT * FROM inventory WHERE equipment_id = ?', [equipment_id], (err, row) => {
+    if (row) {
+      db.run('UPDATE inventory SET quantity=?, min_quantity=? WHERE equipment_id=?', [quantity, min_quantity, equipment_id], function(err) {
+        if (err) return res.status(500).json({ error: 'Envanter güncellenemedi.' });
+        res.json({ mesaj: 'Güncellendi.' });
+      });
+    } else {
+      db.run('INSERT INTO inventory (equipment_id, quantity, min_quantity) VALUES (?, ?, ?)', [equipment_id, quantity, min_quantity], function(err) {
+        if (err) return res.status(500).json({ error: 'Envanter eklenemedi.' });
+        res.json({ mesaj: 'Eklendi.' });
+      });
+    }
+  });
+});
+// Envanter listele + düşük stok uyarısı
+app.get('/api/inventory', authenticateToken, (req, res) => {
+  db.all('SELECT e.*, i.quantity, i.min_quantity FROM equipment e LEFT JOIN inventory i ON e.id = i.equipment_id', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    const lowStock = rows.filter(r => r.quantity != null && r.quantity < r.min_quantity);
+    res.json({ inventory: rows, lowStock });
+  });
+});
+// Rezervasyon ekle (çakışma önleyici)
+app.post('/api/reservations', authenticateToken, (req, res) => {
+  const { equipment_id, member_id, start_time, end_time } = req.body;
+  if (!equipment_id || !member_id || !start_time || !end_time) return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+  db.get('SELECT * FROM reservations WHERE equipment_id = ? AND ((start_time < ? AND end_time > ?) OR (start_time < ? AND end_time > ?) OR (start_time >= ? AND end_time <= ?))', [equipment_id, end_time, end_time, start_time, start_time, start_time, end_time], (err, clash) => {
+    if (clash) return res.status(400).json({ error: 'Bu ekipman bu saatlerde zaten rezerve.' });
+    db.run('INSERT INTO reservations (equipment_id, member_id, start_time, end_time) VALUES (?, ?, ?, ?)', [equipment_id, member_id, start_time, end_time], function(err) {
+      if (err) return res.status(500).json({ error: 'Rezervasyon eklenemedi.' });
+      res.json({ id: this.lastID, equipment_id, member_id, start_time, end_time });
+    });
+  });
+});
+// Rezervasyon listele
+app.get('/api/reservations/:equipment_id', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM reservations WHERE equipment_id = ?', [req.params.equipment_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+// Bakım zamanı yaklaşan ekipmanlar (otomatik uyarı)
+app.get('/api/equipment/maintenance/upcoming', authenticateToken, (req, res) => {
+  db.all('SELECT e.*, i.quantity, i.min_quantity, MAX(r.end_time) as last_res FROM equipment e LEFT JOIN inventory i ON e.id = i.equipment_id LEFT JOIN reservations r ON e.id = r.equipment_id GROUP BY e.id', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    // Bakım zamanı yaklaşanlar: (son rezervasyon tarihi + bakım aralığı) bugünden azsa
+    const today = new Date();
+    const upcoming = rows.filter(eq => {
+      if (!eq.maintenance_interval || !eq.last_res) return false;
+      const nextMaint = new Date(eq.last_res);
+      nextMaint.setDate(nextMaint.getDate() + eq.maintenance_interval);
+      return (nextMaint - today) / (1000 * 60 * 60 * 24) <= 7; // 7 gün içinde bakım
+    });
+    res.json({ upcoming });
+  });
+});
+// === /EQUIPMENT & INVENTORY MANAGEMENT ===
+
+// Eğitmen müsaitlik ekle
+app.post('/api/trainer-availability', authenticateToken, (req, res) => {
+  const { trainer_id, day, time } = req.body;
+  db.run('INSERT INTO trainer_availability (trainer_id, day, time) VALUES (?, ?, ?)', [trainer_id, day, time], function(err) {
+    if (err) return res.status(500).json({ error: 'Müsaitlik eklenemedi.' });
+    res.json({ id: this.lastID, trainer_id, day, time });
+  });
+});
+
+// Eğitmen müsaitlikleri getir
+app.get('/api/trainer-availability/:trainer_id', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM trainer_availability WHERE trainer_id = ?', [req.params.trainer_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Veri alınamadı.' });
+    res.json(rows);
+  });
+});
+
+// Grup dersi ekle
+app.post('/api/classes', authenticateToken, (req, res) => {
+  const { name, date, time, capacity, trainer_id } = req.body;
+  // Eğitmen uygun mu kontrolü
+  db.get('SELECT * FROM trainer_availability WHERE trainer_id = ? AND day = ? AND time = ?', [trainer_id, getDayOfWeek(date), time], (err, row) => {
+    if (!row) return res.status(400).json({ error: 'Eğitmen bu saatte uygun değil.' });
+    db.run('INSERT INTO classes (name, date, time, capacity, trainer_id) VALUES (?, ?, ?, ?, ?)', [name, date, time, capacity, trainer_id], function(err) {
+      if (err) return res.status(500).json({ error: 'Ders eklenemedi.' });
+      res.json({ id: this.lastID, name, date, time, capacity, trainer_id });
+    });
+  });
+});
+
+// Grup dersine üye kaydı
+app.post('/api/classes/:class_id/register', authenticateToken, (req, res) => {
+  const { member_id } = req.body;
+  // Kapasite kontrolü
+  db.get('SELECT capacity, (SELECT COUNT(*) FROM private_lessons WHERE class_id = ?) as count FROM classes WHERE id = ?', [req.params.class_id, req.params.class_id], (err, row) => {
+    if (!row) return res.status(404).json({ error: 'Ders bulunamadı.' });
+    if (row.count >= row.capacity) return res.status(400).json({ error: 'Kapasite dolu.' });
+    db.run('INSERT INTO private_lessons (member_id, class_id) VALUES (?, ?)', [member_id, req.params.class_id], function(err) {
+      if (err) return res.status(500).json({ error: 'Kayıt eklenemedi.' });
+      res.json({ mesaj: 'Kaydınız başarıyla gerçekleştirildi.' });
+    });
+  });
+});
+
+// Özel ders rezervasyonu
+app.post('/api/private-lessons', authenticateToken, (req, res) => {
+  const { member_id, trainer_id, time } = req.body;
+  const day = getDayOfWeek(time.split('T')[0]);
+  const lessonTime = time.split('T')[1].slice(0,5);
+  // Eğitmen müsait mi?
+  db.get('SELECT * FROM trainer_availability WHERE trainer_id = ? AND day = ? AND time = ?', [trainer_id, day, lessonTime], (err, avail) => {
+    if (!avail) return res.status(400).json({ error: 'Eğitmen bu saatte uygun değil.' });
+    // Çakışma kontrolü
+    db.get('SELECT * FROM private_lessons WHERE trainer_id = ? AND time = ?', [trainer_id, time], (err, clash) => {
+      if (clash) return res.status(400).json({ error: 'Bu saatte başka bir özel ders var.' });
+      db.run('INSERT INTO private_lessons (member_id, trainer_id, time) VALUES (?, ?, ?)', [member_id, trainer_id, time], function(err) {
+        if (err) return res.status(500).json({ error: 'Rezervasyon eklenemedi.' });
+        res.json({ id: this.lastID, mesaj: 'Özel ders rezervasyonu başarılı.' });
+      });
+    });
+  });
+});
+
+function getDayOfWeek(dateStr) {
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  return days[new Date(dateStr).getDay()];
+}
+
+// === /CLASS & PROGRAM MANAGEMENT ===
 
 // API: Üye Kaydı
 app.post('/api/members', [

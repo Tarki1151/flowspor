@@ -110,6 +110,8 @@ function App() {
     return matchesSearch && matchesStatus;
   });
 
+  // Navigation state
+  const [screen, setScreen] = useState('members');
   if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />;
 
   return (
@@ -121,6 +123,15 @@ function App() {
           <button style={{background:'#d7263d'}} onClick={()=>{removeToken();setIsLoggedIn(false);}}>Çıkış</button>
         </div>
       </div>
+      <nav style={{marginBottom:'1rem',display:'flex',gap:'1rem',flexWrap:'wrap'}}>
+        <button onClick={()=>setScreen('members')} style={{fontWeight:screen==='members'?'bold':'normal'}}>Üye Yönetimi</button>
+        <button onClick={()=>setScreen('staff')} style={{fontWeight:screen==='staff'?'bold':'normal'}}>Personel</button>
+        <button onClick={()=>setScreen('schedule')} style={{fontWeight:screen==='schedule'?'bold':'normal'}}>Vardiya</button>
+        <button onClick={()=>setScreen('performance')} style={{fontWeight:screen==='performance'?'bold':'normal'}}>Performans</button>
+        <button onClick={()=>setScreen('equipment')} style={{fontWeight:screen==='equipment'?'bold':'normal'}}>Ekipman</button>
+        <button onClick={()=>setScreen('inventory')} style={{fontWeight:screen==='inventory'?'bold':'normal'}}>Envanter</button>
+        <button onClick={()=>setScreen('reservation')} style={{fontWeight:screen==='reservation'?'bold':'normal'}}>Rezervasyon</button>
+      </nav>
       <div style={{display:'flex',gap:'0.5rem',marginBottom:'1rem',flexWrap:'wrap',alignItems:'center'}}>
         <input
           type="text"
@@ -161,6 +172,8 @@ function App() {
           {pwMsg && <div className={pwMsg.includes('başarı') ? 'message':'error'}>{pwMsg}</div>}
         </form>
       )}
+      {screen === 'members' && (
+        <>
       <form onSubmit={handleSubmit} className="form">
         <h3>{tr.addMember}</h3>
         <div className="form-row">
@@ -203,6 +216,15 @@ function App() {
         {message && <div className="message">{message}</div>}
       </form>
       <h3>{tr.memberList}</h3>
+      </>
+      )}
+      {screen === 'staff' && <StaffManagement />}
+      {screen === 'schedule' && <ScheduleManagement />}
+      {screen === 'performance' && <PerformanceManagement />}
+      {screen === 'equipment' && <EquipmentManagement />}
+      {screen === 'inventory' && <InventoryManagement />}
+      {screen === 'reservation' && <ReservationManagement />}
+
       {loading ? <div>Yükleniyor...</div> : (
         <div className="table-scroll">
           <table className="member-table">
@@ -269,5 +291,12 @@ function App() {
     </div>
   );
 }
+
+import StaffManagement from './StaffManagement';
+import ScheduleManagement from './ScheduleManagement';
+import PerformanceManagement from './PerformanceManagement';
+import EquipmentManagement from './EquipmentManagement';
+import InventoryManagement from './InventoryManagement';
+import ReservationManagement from './ReservationManagement';
 
 export default App;
