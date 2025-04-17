@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { setToken } from './auth';
+import logo from './TARABYA MARTE-500x.png';
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -28,14 +29,17 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="container">
-      <h2>Yönetici Girişi</h2>
+      <div style={{textAlign:'center', marginBottom:'1.3rem'}}>
+        <img src={logo} alt="Tarabya Marte Fight Academy Logo" style={{maxWidth:'200px', height:'auto', aspectRatio:'1/1', objectFit:'contain'}} />
+      </div>
+      <h2 className="login-title">Yönetici Girişi</h2>
       <form onSubmit={handleSubmit} className="form">
         <div className="form-row">
-          <label>Kullanıcı Adı</label>
+          <label className="login-label">Kullanıcı Adı</label>
           <input value={username} onChange={e=>setUsername(e.target.value)} autoFocus />
         </div>
         <div className="form-row">
-          <label>Şifre</label>
+          <label className="login-label">Şifre</label>
           <input type="password" value={password} onChange={e=>setPassword(e.target.value)} />
         </div>
         <button type="submit" disabled={loading}>Giriş</button>

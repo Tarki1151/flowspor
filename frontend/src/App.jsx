@@ -16,6 +16,8 @@ import Login from './Login';
 import { getToken, removeToken } from './auth';
 import './App.css';
 
+import logo from './TARABYA MARTE-500x.png';
+
 function App() {
   const [members, setMembers] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(!!getToken());
@@ -126,6 +128,13 @@ function App() {
 
   if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />;
 
+  // Logo header
+  const logoHeader = (
+    <div style={{textAlign:'center', marginTop:'1.5rem', marginBottom:'1.5rem'}}>
+      <img src={logo} alt="Tarabya Marte Fight Academy Logo" style={{maxWidth:'220px', height:'auto', aspectRatio:'1/1', objectFit:'contain'}} />
+    </div>
+  );
+
   // Scroll to top on screen change (mobile UX)
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -198,7 +207,7 @@ function App() {
         <AddMember onSuccess={()=>setScreen('members')} />
       )}
       {screen === 'staff' && <StaffManagement />}
-      {screen === 'schedule' && <ScheduleManagement />}
+
       {screen === 'performance' && <PerformanceManagement />}
       {screen === 'equipment' && <EquipmentManagement />}
       {screen === 'inventory' && <InventoryManagement />}
@@ -221,10 +230,6 @@ function App() {
                 <th>{tr.email}</th>
                 <th>{tr.phone}</th>
                 <th>{tr.membershipType}</th>
-                <th>{tr.startDate}</th>
-                <th>{tr.endDate}</th>
-                <th>{tr.status}</th>
-                <th>{tr.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -235,21 +240,8 @@ function App() {
                   <td>{m.email}</td>
                   <td>{m.phone}</td>
                   <td>{m.membership_type === 'monthly' ? tr.monthly : tr.annual}</td>
-                  <td>{m.start_date}</td>
-                  <td>{m.end_date}</td>
-                  <td>{tr[m.status] || m.status}</td>
-                  <td>
-                    <button onClick={() => handleRenew(m.id)} disabled={m.status !== 'expired'}>{tr.renew}</button>
-                    <button onClick={() => handleCancel(m.id)} disabled={m.status === 'canceled'}>{tr.cancel}</button>
-                    <button onClick={() => handleDelete(m.id)}>{tr.delete}</button>
-                    <button style={{background:'#607d8b'}} onClick={async()=>{
-                      const data = await getMember(m.id);
-                      setDetailMember(data);
-                      setDetailOpen(true);
-                    }}>{tr.details}</button>
-                  </td>
                 </tr>
-              )) : <tr><td colSpan="9">Üye yok.</td></tr>}
+              )) : <tr><td colSpan="5">Üye yok.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -279,7 +271,6 @@ function App() {
 }
 
 import StaffManagement from './StaffManagement';
-import ScheduleManagement from './ScheduleManagement';
 import PerformanceManagement from './PerformanceManagement';
 import EquipmentManagement from './EquipmentManagement';
 import InventoryManagement from './InventoryManagement';

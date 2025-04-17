@@ -86,19 +86,15 @@ export default function StaffManagement() {
       <table className="member-table">
         <thead>
           <tr>
-            <th>İsim</th><th>Rol</th><th>E-posta</th><th>Telefon</th><th>Başlangıç</th><th>Maaş</th><th>İşlem</th>
+            <th>İsim</th><th>Rol</th><th>E-posta</th><th>Telefon</th>
           </tr>
         </thead>
         <tbody>
           {staff && staff.length > 0 ? staff.map(s => (
             <tr key={s.id}>
-              <td>{s.name}</td><td>{s.role}</td><td>{s.email}</td><td>{s.phone}</td><td>{s.start_date}</td><td>{s.salary}</td>
-              <td>
-                <button onClick={()=>handleEdit(s)}>Düzenle</button>
-                <button onClick={()=>handleDelete(s.id)}>Sil</button>
-              </td>
+              <td>{s.name}</td><td>{s.role}</td><td>{s.email}</td><td>{s.phone}</td>
             </tr>
-          )) : <tr><td colSpan="7">Personel yok.</td></tr>}
+          )) : <tr><td colSpan="4">Personel yok.</td></tr>}
         </tbody>
       </table>
     </div>

@@ -12,9 +12,7 @@ export default function MainNavigation({ screen, setScreen, navOpen, setNavOpen 
         <button onClick={() => { setScreen("staff"); setNavOpen(false); }} aria-label="Personel" style={{ fontWeight: screen === "staff" ? "bold" : "normal" }}>
           <span className="nav-icon">🧑‍💼</span><span className="nav-text">Personel</span>
         </button>
-        <button onClick={() => { setScreen("schedule"); setNavOpen(false); }} aria-label="Vardiya" style={{ fontWeight: screen === "schedule" ? "bold" : "normal" }}>
-          <span className="nav-icon">📅</span><span className="nav-text">Vardiya</span>
-        </button>
+
         <button onClick={() => { setScreen("performance"); setNavOpen(false); }} aria-label="Performans" style={{ fontWeight: screen === "performance" ? "bold" : "normal" }}>
           <span className="nav-icon">📈</span><span className="nav-text">Performans</span>
         </button>
